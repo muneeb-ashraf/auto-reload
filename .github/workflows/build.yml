@@ -38,7 +38,8 @@ jobs:
             -project AutoReload.xcodeproj \
             -target "$SCHEME_TARGET" \
             -configuration Release \
-            -derivedDataPath build/DerivedData \
+            SYMROOT="$PWD/build" \
+            OBJROOT="$PWD/build/Intermediates" \
             CONFIGURATION_BUILD_DIR="$PWD/build/Release" \
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="-" \
