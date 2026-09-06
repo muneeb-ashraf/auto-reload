@@ -54,17 +54,26 @@ class SafariExtensionViewController: SFSafariExtensionViewController {
     }
 
     @IBAction func changeScope(_ sender: NSSegmentedControl) {
-        UserDefaults.standard.set(scopeSwitch?.integerValue, forKey: "scopeSwitchValue")
+        UserDefaults.standard.set(scopeSwitch?.selectedSegment ?? 0, forKey: "scopeSwitchValue")
     }
 
     @IBAction func startStopAction(_ sender: NSButton) {
         SFSafariApplication.getActiveWindow { window in
             guard let window = window else { return }
-            DispatchQueue.main.async {
-                if let activeReloader = Reloaders.shared.forWindow(window: window) {
+
+            if let activeReloader = Reloaders.shared.forWindow(window: window) {
+                DispatchQueue.main.async {
                     self.removeReloader(reloader: activeReloader)
-                } else {
-                    self.addReloader(window: window)
+                }
+                return
+            }
+
+            // Capture the currently active tab now so that "Active Tab" mode
+            // keeps reloading this specific tab, even if the user later
+            // switches to a different tab in the same window.
+            window.getActiveTab { tab in
+                DispatchQueue.main.async {
+                    self.addReloader(window: window, tab: tab)
                 }
             }
         }
@@ -84,7 +93,7 @@ class SafariExtensionViewController: SFSafariExtensionViewController {
     func loadPopover(window: SFSafariWindow) {
         if let activeReloader = Reloaders.shared.forWindow(window: window) {
             self.intervalSlider?.doubleValue = activeReloader.interval
-            self.scopeSwitch?.intValue = activeReloader.allTabs ? 1 : 0
+            self.scopeSwitch?.selectedSegment = activeReloader.allTabs ? 1 : 0
             self.setMode(mode: "running")
             self.updatePopoverStatus(reloader: activeReloader)
             self.startCountdownTimer(reloader: activeReloader)
@@ -95,7 +104,7 @@ class SafariExtensionViewController: SFSafariExtensionViewController {
             } else {
                 self.intervalSlider?.doubleValue = 60
             }
-            self.scopeSwitch?.integerValue = UserDefaults.standard.integer(forKey: "scopeSwitchValue")
+            self.scopeSwitch?.selectedSegment = UserDefaults.standard.integer(forKey: "scopeSwitchValue")
             self.setMode(mode: "config")
             self.updatePopoverStatus()
         }
@@ -117,11 +126,12 @@ class SafariExtensionViewController: SFSafariExtensionViewController {
         }
     }
 
-    private func addReloader(window: SFSafariWindow) {
+    private func addReloader(window: SFSafariWindow, tab: SFSafariTab?) {
         guard let interval = self.intervalSlider?.doubleValue else { return }
         let reloader = Reloaders.shared.createReloader(
             window: window,
-            allTabs: scopeSwitch?.intValue == 1,
+            tab: tab,
+            allTabs: scopeSwitch?.selectedSegment == 1,
             interval: interval
         )
         setMode(mode: "running")
